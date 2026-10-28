@@ -1,0 +1,569 @@
+<!DOCTYPE html><html lang="th"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ชำระเงิน · PharmaGo</title>
+<meta name="description" content="ยืนยันที่อยู่จัดส่งและเลือกวิธีชำระเงินสำหรับคำสั่งซื้อยาของคุณที่ PharmaGo">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Bricolage+Grotesque:opsz,wght@12..96,400;600;700;800&family=Fragment+Mono&family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=Mitr:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script><script src="https://unpkg.com/lucide@latest"></script>
+<script src="assets/js/db.js"></script><script src="assets/js/auth.js"></script><script src="assets/js/ui.js"></script>
+<style>
+  /* ── Checkout: quiet, editorial look ── */
+  .co-card {
+    background: #fff;
+    border: 1px solid #E7E3DB;
+    border-radius: 20px;
+    padding: 22px;
+  }
+  .co-step {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 15px; font-weight: 700; color: #18322B;
+    margin-bottom: 16px;
+  }
+  .co-step-no {
+    width: 24px; height: 24px; border-radius: 999px;
+    border: 1.5px solid #176B57; color: #176B57;
+    display: grid; place-items: center;
+    font: 600 11px/1 var(--font-mono);
+  }
+  .co-step-hint { margin-left: auto; font-size: 11.5px; font-weight: 500; color: #8A948F; }
+  .co-label { display: block; font-size: 12px; font-weight: 600; color: #4B5A54; margin-bottom: 6px; }
+  .co-input {
+    width: 100%; height: 44px; padding: 0 14px;
+    border: 1px solid #E3E0D8; border-radius: 12px; background: #fff;
+    font-size: 13px; color: #18322B; outline: none;
+    transition: border-color .2s ease, box-shadow .2s ease;
+  }
+  textarea.co-input { height: auto; padding: 10px 14px; resize: none; line-height: 1.6; }
+  .co-input:focus { border-color: #176B57; box-shadow: 0 0 0 3px rgba(23,107,87,.12); }
+  .co-input::placeholder { color: #B3B8B5; }
+
+  /* ── Payment selector with sliding frame ── */
+  .pay-grid {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  @media (min-width: 640px) { .pay-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+  .pay-indicator {
+    position: absolute; top: 0; left: 0; z-index: 0;
+    border-radius: 14px;
+    background: #F2F8F5;
+    border: 1.5px solid #176B57;
+    box-shadow: 0 10px 24px -12px rgba(23,107,87,.55);
+    pointer-events: none;
+    transition:
+      transform .5s cubic-bezier(.22, 1, .36, 1),
+      width .5s cubic-bezier(.22, 1, .36, 1),
+      height .5s cubic-bezier(.22, 1, .36, 1);
+    will-change: transform;
+  }
+
+  .pay-opt {
+    position: relative; z-index: 1;
+    display: flex; flex-direction: column; justify-content: space-between; gap: 14px;
+    min-height: 92px; padding: 13px 14px;
+    text-align: left;
+    background: transparent;
+    border: 1px solid #E7E3DB;
+    border-radius: 14px;
+    cursor: pointer;
+    transition: border-color .25s ease, color .25s ease;
+  }
+  .pay-opt:hover { border-color: #CFCAC0; }
+  .pay-opt.is-active { border-color: transparent; }
+  .pay-opt svg { width: 18px; height: 18px; color: #7C8782; transition: color .25s ease; }
+  .pay-opt.is-active svg { color: #176B57; }
+  .pay-opt .pay-title { font-size: 13px; font-weight: 700; color: #26352F; line-height: 1.25; }
+  .pay-opt .pay-sub { font-size: 11px; color: #8A948F; margin-top: 2px; line-height: 1.3; }
+  .pay-opt.is-active .pay-title { color: #10463A; }
+
+  .pay-dot {
+    width: 16px; height: 16px; border-radius: 999px;
+    border: 1.5px solid #CFCAC0; background: #fff;
+    display: grid; place-items: center;
+    transition: border-color .25s ease;
+  }
+  .pay-dot::after {
+    content: ''; width: 8px; height: 8px; border-radius: 999px; background: #176B57;
+    transform: scale(0); transition: transform .3s cubic-bezier(.34, 1.56, .64, 1);
+  }
+  .pay-opt.is-active .pay-dot { border-color: #176B57; }
+  .pay-opt.is-active .pay-dot::after { transform: scale(1); }
+
+  /* Stop global bouncy hover/active from fighting the sliding frame */
+  [data-anim-mode] .pay-opt:hover:not(:disabled),
+  [data-anim-mode] .pay-opt:active:not(:disabled) {
+    transform: none !important;
+    box-shadow: none !important;
+  }
+
+  .pay-panel {
+    margin-top: 16px;
+    border: 1px solid #EEEAE2; border-radius: 16px;
+    background: #FBFAF7;
+    padding: 18px;
+    font-size: 12.5px;
+  }
+  .pay-in { animation: payIn .38s cubic-bezier(.22, 1, .36, 1) both; }
+  @keyframes payIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  .co-total-btn {
+    width: 100%; height: 50px; border-radius: 14px;
+    background: #176B57; color: #fff;
+    font-weight: 700; font-size: 14px;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .co-total-btn:hover { background: #104C3E; }
+</style>
+</head><body class="font-sans text-slate-800 antialiased min-h-screen flex flex-col">
+
+<header id="nav" class="sticky top-0 z-40 bg-white/90 backdrop-blur"></header>
+
+<main class="max-w-5xl mx-auto px-4 sm:px-6 py-8 flex-1 w-full">
+  <a href="cart.html" class="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-emerald-700 mb-4 transition">
+    <i data-lucide="arrow-left" class="w-4 h-4"></i> กลับไปตะกร้า
+  </a>
+  <h1 class="text-2xl sm:text-[28px] font-bold text-slate-900 tracking-tight mb-7 font-display">ชำระเงิน</h1>
+
+  <div id="body" class="grid lg:grid-cols-[1fr_340px] gap-6 items-start"></div>
+</main>
+
+<script>
+const u = guard(['customer']);
+let currentMethod = 'promptpay';
+let uploadedSlipData = '';
+let countdownSec = 15 * 60;
+let countdownTimer = null;
+let checkoutLat = u ? (u.lat || 13.7200) : 13.7200;
+let checkoutLng = u ? (u.lng || 100.5500) : 100.5500;
+
+function pickCheckoutPin() {
+  openPinPickerModal({
+    lat: checkoutLat,
+    lng: checkoutLng,
+    title: '📍 ปักหมุดที่อยู่จัดส่งยา (Grab / LINE MAN Style)',
+    onConfirm: ({ lat, lng, address }) => {
+      checkoutLat = lat;
+      checkoutLng = lng;
+      if ($('checkoutPinTxt')) $('checkoutPinTxt').textContent = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+      if (address && $('ad')) $('ad').value = address;
+      toast('ปักหมุดตำแหน่งจัดส่งเรียบร้อยแล้ว ✓');
+    }
+  });
+}
+
+const PAY_METHODS = [
+  ['promptpay', 'พร้อมเพย์',        'สแกน QR จ่ายทันที',     'qr-code'],
+  ['card',      'บัตรเครดิต/เดบิต', 'Visa · Master · JCB',   'credit-card'],
+  ['bank',      'โอนผ่านธนาคาร',    'KBank · SCB',           'landmark'],
+  ['cod',       'เก็บเงินปลายทาง',  'จ่ายสดกับไรเดอร์',      'banknote']
+];
+
+if (u) { renderNav('', ''); render(); }
+
+function totals() {
+  const gs = cartGroups(u.id);
+  const sub = gs.reduce((s,g)=>s+g.subtotal,0), ship = gs.reduce((s,g)=>s+g.ship,0);
+  return { gs, sub, ship, total: sub + ship };
+}
+
+function render() {
+  const { gs, sub, ship, total } = totals();
+  if (!gs.length) { location.replace('cart.html'); return; }
+  const rx = gs.some(g => g.items.some(({p}) => p.cls !== 'general'));
+
+  $('body').innerHTML = `
+  <div class="space-y-5">
+    <!-- 1 · ที่อยู่จัดส่ง -->
+    <section class="co-card">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="co-step mb-0"><span class="co-step-no">1</span> ที่อยู่จัดส่ง</h2>
+        <button type="button" onclick="pickCheckoutPin()" class="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1.5 font-display px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 transition">
+          <i data-lucide="map-pin" class="w-4 h-4 text-rose-500"></i> ปักหมุดแผนที่ (GPS Pin)
+        </button>
+      </div>
+      <div class="grid sm:grid-cols-2 gap-3.5 mb-3.5">
+        <div>
+          <label for="rc" class="co-label">ชื่อผู้รับ</label>
+          <input id="rc" value="${u.name}" class="co-input">
+        </div>
+        <div>
+          <label for="ph" class="co-label">เบอร์โทร</label>
+          <input id="ph" value="${u.phone||''}" class="co-input">
+        </div>
+      </div>
+      <div>
+        <label for="ad" class="co-label">ที่อยู่ / จุดสังเกต</label>
+        <textarea id="ad" rows="2" class="co-input">${u.addr||''}</textarea>
+      </div>
+      <div id="checkoutPinBadge" class="mt-2.5 p-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-mono text-slate-600 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full ${checkoutLat?'bg-rose-500':'bg-slate-300'}"></span>
+          <span>พิกัดส่งยา:</span>
+          <strong id="checkoutPinTxt" class="text-slate-900">${checkoutLat ? `${checkoutLat.toFixed(4)}, ${checkoutLng.toFixed(4)}` : 'ยังไม่ได้ปักหมุด'}</strong>
+        </div>
+        <button type="button" onclick="pickCheckoutPin()" class="text-emerald-700 hover:underline font-bold text-[11px] font-display">เปลี่ยนพิกัด</button>
+      </div>
+    </section>
+
+    <!-- 2 · วิธีชำระเงิน -->
+    <section class="co-card">
+      <h2 class="co-step"><span class="co-step-no">2</span> วิธีชำระเงิน</h2>
+
+      <div id="payTabs" class="pay-grid" role="radiogroup" aria-label="วิธีชำระเงิน">
+        <span id="payIndicator" class="pay-indicator" aria-hidden="true"></span>
+        ${PAY_METHODS.map(([key, label, sub, ic]) => `
+          <button type="button" id="pay-${key}" data-method="${key}" role="radio"
+            aria-checked="${currentMethod===key}"
+            onclick="selectPaymentMethod('${key}')"
+            class="pay-opt ${currentMethod===key ? 'is-active' : ''}">
+            <div class="flex items-center justify-between">
+              <i data-lucide="${ic}"></i>
+              <span class="pay-dot"></span>
+            </div>
+            <div>
+              <div class="pay-title">${label}</div>
+              <div class="pay-sub">${sub}</div>
+            </div>
+          </button>`).join('')}
+      </div>
+
+      <div id="paymentDetailsBox" class="pay-panel">${renderPaymentDetails(total)}</div>
+    </section>
+
+    ${rx ? `
+    <section class="rounded-2xl border border-amber-200/80 bg-amber-50/60 p-4 flex gap-3 text-xs text-amber-900">
+      <i data-lucide="stethoscope" class="w-5 h-5 text-amber-700 shrink-0 mt-0.5"></i>
+      <div>
+        <div class="font-semibold">มียาอันตราย/ยาควบคุมในคำสั่งซื้อนี้</div>
+        <p class="text-[11.5px] text-amber-800/90 mt-0.5 leading-relaxed">เภสัชกรจะโทรสอบถามประวัติแพ้ยาและอธิบายวิธีใช้ก่อนส่งของ</p>
+      </div>
+    </section>` : ''}
+  </div>
+
+  <!-- สรุปคำสั่งซื้อ -->
+  <aside class="co-card lg:sticky lg:top-24">
+    <div class="flex items-baseline justify-between mb-4">
+      <h2 class="font-bold text-slate-900 text-[15px]">สรุปคำสั่งซื้อ</h2>
+      <span class="text-[11px] text-slate-400">${gs.reduce((n,g)=>n+g.items.length,0)} รายการ</span>
+    </div>
+
+    <div class="space-y-4 max-h-60 overflow-y-auto pr-1 text-xs">
+      ${gs.map(g => `
+        <div>
+          <div class="text-[11px] font-semibold text-slate-500 mb-2 flex items-center gap-1.5">
+            <i data-lucide="store" class="w-3.5 h-3.5"></i> ${g.shop}
+          </div>
+          ${g.items.map(({p,q}) => `
+            <div class="flex items-center gap-3 py-1.5">
+              <span class="w-10 h-10 rounded-lg bg-slate-100 overflow-hidden shrink-0 flex items-center justify-center">
+                ${productImg(p)}
+              </span>
+              <div class="flex-1 min-w-0">
+                <div class="truncate font-medium text-slate-800">${p.name}</div>
+                <div class="text-[11px] text-slate-400">จำนวน ${q}</div>
+              </div>
+              <span class="font-semibold text-slate-800 shrink-0">${baht(p.price*q)}</span>
+            </div>`).join('')}
+        </div>`).join('')}
+    </div>
+
+    <div class="mt-4 pt-4 border-t border-dashed border-slate-200 space-y-2 text-xs">
+      <div class="flex justify-between text-slate-500"><span>ค่าสินค้า</span><span class="text-slate-700">${baht(sub)}</span></div>
+      <div class="flex justify-between text-slate-500">
+        <span>ค่าส่ง (${gs.length} ร้าน)</span>
+        <span class="${ship?'text-slate-700':'text-emerald-700 font-semibold'}">${ship?baht(ship):'ฟรี'}</span>
+      </div>
+      <div class="flex justify-between items-baseline pt-3 mt-1 border-t border-slate-100">
+        <span class="text-sm font-semibold text-slate-900">ยอดชำระ</span>
+        <span class="text-xl font-bold text-slate-900 tracking-tight">${baht(total)}</span>
+      </div>
+    </div>
+
+    <button id="submitOrderBtn" onclick="submitOrder()" class="co-total-btn mt-5">
+      ยืนยันคำสั่งซื้อ <i data-lucide="arrow-right" class="w-4 h-4"></i>
+    </button>
+    <p class="text-[11px] text-slate-400 text-center mt-3 flex items-center justify-center gap-1">
+      <i data-lucide="lock" class="w-3 h-3"></i> ข้อมูลการชำระเงินถูกเข้ารหัส
+    </p>
+  </aside>`;
+
+  icons();
+  startTimer();
+  requestAnimationFrame(() => moveIndicator(true));
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => moveIndicator(true));
+}
+
+/* ── เลื่อนกรอบไฮไลต์ไปยังปุ่มที่เลือก ── */
+function moveIndicator(instant) {
+  const wrap = $('payTabs'), ind = $('payIndicator');
+  if (!wrap || !ind) return;
+  const btn = wrap.querySelector(`[data-method="${currentMethod}"]`);
+  if (!btn) return;
+  if (instant) ind.style.transition = 'none';
+  ind.style.width  = btn.offsetWidth + 'px';
+  ind.style.height = btn.offsetHeight + 'px';
+  ind.style.transform = `translate(${btn.offsetLeft}px, ${btn.offsetTop}px)`;
+  if (instant) { void ind.offsetHeight; ind.style.transition = ''; }
+}
+window.addEventListener('resize', () => moveIndicator(true));
+
+function selectPaymentMethod(m) {
+  if (m === currentMethod) return;
+  currentMethod = m;
+
+  document.querySelectorAll('#payTabs .pay-opt').forEach(b => {
+    const on = b.dataset.method === m;
+    b.classList.toggle('is-active', on);
+    b.setAttribute('aria-checked', on);
+  });
+  moveIndicator(false);
+
+  const box = $('paymentDetailsBox');
+  box.innerHTML = renderPaymentDetails(totals().total);
+  box.classList.remove('pay-in'); void box.offsetWidth; box.classList.add('pay-in');
+  icons();
+}
+
+/* ── รายละเอียดตามวิธีที่เลือก ── */
+function renderPaymentDetails(total) {
+  if (currentMethod === 'promptpay') {
+    return `
+    <div class="flex flex-col sm:flex-row items-center gap-6">
+      <div class="w-44 bg-white p-3 rounded-xl border border-slate-200 text-center shrink-0">
+        <div class="bg-[#103058] text-white py-1 px-2 rounded font-semibold text-[10px] tracking-wider mb-2">THAI QR PAYMENT</div>
+        <div class="relative w-36 h-36 mx-auto bg-white flex items-center justify-center">
+          <svg viewBox="0 0 100 100" class="w-full h-full">
+            <rect width="100" height="100" fill="#fff"/>
+            <rect x="5" y="5" width="28" height="28" fill="#000"/><rect x="9" y="9" width="20" height="20" fill="#fff"/><rect x="13" y="13" width="12" height="12" fill="#000"/>
+            <rect x="67" y="5" width="28" height="28" fill="#000"/><rect x="71" y="9" width="20" height="20" fill="#fff"/><rect x="75" y="13" width="12" height="12" fill="#000"/>
+            <rect x="5" y="67" width="28" height="28" fill="#000"/><rect x="9" y="71" width="20" height="20" fill="#fff"/><rect x="13" y="75" width="12" height="12" fill="#000"/>
+            <rect x="38" y="10" width="5" height="5" fill="#000"/><rect x="48" y="15" width="6" height="5" fill="#000"/>
+            <rect x="40" y="30" width="7" height="6" fill="#000"/><rect x="52" y="38" width="8" height="6" fill="#000"/>
+            <rect x="15" y="42" width="6" height="8" fill="#000"/><rect x="25" y="50" width="7" height="5" fill="#000"/>
+            <rect x="70" y="45" width="5" height="5" fill="#000"/><rect x="85" y="52" width="6" height="6" fill="#000"/>
+            <rect x="42" y="65" width="6" height="8" fill="#000"/><rect x="55" y="70" width="8" height="6" fill="#000"/>
+            <rect x="75" y="78" width="6" height="5" fill="#000"/><rect x="88" y="85" width="5" height="6" fill="#000"/>
+            <circle cx="50" cy="50" r="11" fill="#fff" stroke="#103058" stroke-width="2"/>
+            <text x="50" y="54" text-anchor="middle" font-size="8" font-weight="bold" fill="#103058">QR</text>
+          </svg>
+        </div>
+        <div class="text-sm font-bold text-slate-900 mt-1">${baht(total)}</div>
+      </div>
+
+      <div class="flex-1 w-full space-y-3">
+        <div class="flex items-center justify-between">
+          <span class="text-slate-500">ชื่อบัญชี</span>
+          <span class="font-semibold text-slate-800">บจก. ฟาร์มาโก ไทยแลนด์</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-slate-500">QR หมดอายุใน</span>
+          <span id="qrTimer" class="font-mono font-semibold text-amber-700">15:00</span>
+        </div>
+        <div class="pt-3 border-t border-slate-200/70">
+          <div class="text-slate-600 mb-2">แนบสลิป <span class="text-slate-400">(ไม่บังคับ)</span></div>
+          <div class="flex items-center gap-3">
+            <label class="h-9 px-3.5 rounded-lg bg-white border border-slate-200 hover:border-slate-300 cursor-pointer font-medium text-slate-700 transition inline-flex items-center gap-1.5">
+              <i data-lucide="paperclip" class="w-3.5 h-3.5"></i> เลือกไฟล์
+              <input type="file" accept="image/*" class="sr-only" onchange="handleSlipUpload(event)">
+            </label>
+            <span id="slipStatusText" class="text-[11.5px] text-slate-500 truncate">
+              ${uploadedSlipData ? '<span class="text-emerald-700 font-semibold">แนบแล้ว</span>' : 'ยังไม่ได้แนบ'}
+            </span>
+          </div>
+          ${uploadedSlipData ? `
+            <div class="mt-3 w-20 h-20 rounded-lg overflow-hidden border border-slate-200">
+              <img src="${uploadedSlipData}" class="w-full h-full object-cover" alt="สลิปที่แนบ">
+            </div>` : ''}
+        </div>
+      </div>
+    </div>`;
+  }
+
+  if (currentMethod === 'card') {
+    return `
+    <div class="space-y-3.5">
+      <div>
+        <label for="cardNo" class="co-label">หมายเลขบัตร</label>
+        <input id="cardNo" maxlength="19" inputmode="numeric" placeholder="0000 0000 0000 0000" oninput="formatCard(this)" class="co-input font-mono">
+      </div>
+      <div class="grid grid-cols-2 gap-3.5">
+        <div>
+          <label for="cardExp" class="co-label">วันหมดอายุ</label>
+          <input id="cardExp" maxlength="5" inputmode="numeric" placeholder="MM/YY" oninput="formatExp(this)" class="co-input font-mono">
+        </div>
+        <div>
+          <label for="cardCvv" class="co-label">CVV</label>
+          <input id="cardCvv" maxlength="3" type="password" inputmode="numeric" placeholder="•••" class="co-input font-mono">
+        </div>
+      </div>
+      <div>
+        <label for="cardName" class="co-label">ชื่อบนบัตร</label>
+        <input id="cardName" placeholder="SOMCHAI DEE" class="co-input uppercase">
+      </div>
+    </div>`;
+  }
+
+  if (currentMethod === 'bank') {
+    return `
+    <div class="space-y-3">
+      <div class="grid sm:grid-cols-2 gap-2.5">
+        ${[['KBank','กสิกรไทย','123-4-56789-0','#138f2d','KB',true],['SCB','ไทยพาณิชย์','987-6-54321-0','#4e2e7f','SCB',false]].map(([v,n,acc,c,ab,chk]) => `
+        <label class="p-3 rounded-xl border border-slate-200 bg-white hover:border-slate-300 cursor-pointer flex items-center gap-3 transition has-[:checked]:border-emerald-700 has-[:checked]:bg-emerald-50/40">
+          <input type="radio" name="bankPick" value="${v}" class="accent-emerald-700" ${chk?'checked':''}>
+          <span class="w-8 h-8 rounded-lg text-white font-bold flex items-center justify-center text-[10px]" style="background:${c}">${ab}</span>
+          <div class="leading-tight"><div class="font-semibold text-slate-800">${n}</div><div class="text-[11px] text-slate-500 font-mono mt-0.5">${acc}</div></div>
+        </label>`).join('')}
+      </div>
+      <div class="flex justify-between items-center text-slate-600">
+        <span>ชื่อบัญชี <b class="font-semibold text-slate-800">บจก. ฟาร์มาโก ไทยแลนด์</b></span>
+        <button onclick="toast('คัดลอกเลขบัญชีแล้ว')" class="h-8 px-3 rounded-lg border border-slate-200 bg-white hover:border-slate-300 font-medium text-slate-700 inline-flex items-center gap-1.5">
+          <i data-lucide="copy" class="w-3.5 h-3.5"></i> คัดลอก
+        </button>
+      </div>
+    </div>`;
+  }
+
+  if (currentMethod === 'cod') {
+    return `
+    <div class="flex gap-3">
+      <i data-lucide="hand-coins" class="w-5 h-5 text-emerald-700 shrink-0 mt-0.5"></i>
+      <p class="text-slate-600 leading-relaxed">
+        เตรียมเงินสด <b class="text-slate-900">${baht(total)}</b> ไว้ให้พอดี ไรเดอร์จะโทรหาก่อนถึงประมาณ 5–10 นาที
+      </p>
+    </div>`;
+  }
+}
+
+function handleSlipUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    uploadedSlipData = evt.target.result;
+    toast('แนบสลิปเรียบร้อย');
+    $('paymentDetailsBox').innerHTML = renderPaymentDetails(totals().total);
+    icons();
+  };
+  reader.readAsDataURL(file);
+}
+
+function formatCard(el) {
+  let val = el.value.replace(/\D/g, '').substring(0, 16);
+  el.value = val.replace(/(\d{4})(?=\d)/g, '$1 ');
+}
+
+function formatExp(el) {
+  let val = el.value.replace(/\D/g, '').substring(0, 4);
+  if (val.length >= 2) val = val.substring(0,2) + '/' + val.substring(2);
+  el.value = val;
+}
+
+function startTimer() {
+  clearInterval(countdownTimer);
+  countdownTimer = setInterval(() => {
+    countdownSec--;
+    if (countdownSec <= 0) { countdownSec = 15 * 60; }
+    const m = String(Math.floor(countdownSec / 60)).padStart(2, '0');
+    const s = String(countdownSec % 60).padStart(2, '0');
+    if ($('qrTimer')) $('qrTimer').textContent = `${m}:${s}`;
+  }, 1000);
+}
+
+function submitOrder() {
+  const rc = $('rc').value.trim();
+  const ph = $('ph').value.trim();
+  const ad = $('ad').value.trim();
+  if (!rc) { toast('กรุณากรอกชื่อผู้รับ'); $('rc').focus(); return; }
+  if (!ph) { toast('กรุณากรอกเบอร์โทร'); $('ph').focus(); return; }
+  if (!ad) { toast('กรุณากรอกที่อยู่จัดส่ง'); $('ad').focus(); return; }
+
+  const methodNames = {
+    promptpay: 'พร้อมเพย์ QR',
+    card: 'บัตรเครดิต/เดบิต',
+    bank: 'โอนผ่านธนาคาร',
+    cod: 'เก็บเงินปลายทาง'
+  };
+
+  const { gs, sub, ship, total } = totals();
+
+  showModal(`
+  <div class="p-6 font-display">
+    <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+      <h3 class="font-bold text-slate-900 text-base flex items-center gap-2">
+        <i data-lucide="shield-check" class="w-5 h-5 text-emerald-600"></i> ตรวจสอบข้อมูลก่อนยืนยันสั่งซื้อ
+      </h3>
+      <button onclick="closeModal()" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <div class="space-y-4 text-xs font-sans">
+      <!-- ข้อมูลที่อยู่จัดส่งที่กรอกไว้ -->
+      <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="font-bold text-slate-700 flex items-center gap-1.5">
+            <i data-lucide="map-pin" class="w-3.5 h-3.5 text-emerald-600"></i> ที่อยู่จัดส่งของคุณ:
+          </span>
+          <button onclick="closeModal();$('ad').focus()" class="text-emerald-700 hover:underline font-bold text-[11px] flex items-center gap-1">
+            <i data-lucide="edit-3" class="w-3 h-3"></i> แก้ไขที่อยู่
+          </button>
+        </div>
+        <div class="font-semibold text-slate-900 text-sm">${rc} · ${ph}</div>
+        <div class="text-slate-600 leading-relaxed mt-0.5">${ad}</div>
+        ${checkoutLat ? `<div class="text-[10px] text-emerald-700 font-mono mt-1 flex items-center gap-1">📍 พิกัดปักหมุด GPS: ${checkoutLat.toFixed(4)}, ${checkoutLng.toFixed(4)}</div>` : ''}
+      </div>
+
+      <!-- สรุปวิธีชำระเงินและยอดเงิน -->
+      <div class="p-3.5 rounded-2xl bg-emerald-50/50 border border-emerald-100 space-y-1">
+        <div class="flex justify-between">
+          <span class="text-slate-500">วิธีชำระเงิน:</span>
+          <b class="text-slate-900">${methodNames[currentMethod]}</b>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-slate-500">รวมค่าสินค้า + ค่าส่ง:</span>
+          <b class="text-emerald-700 font-bold text-sm">${baht(total)}</b>
+        </div>
+      </div>
+
+      <div class="pt-2 flex gap-3 font-display">
+        <button onclick="closeModal()" class="flex-1 h-11 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition flex items-center justify-center gap-1.5">
+          <i data-lucide="arrow-left" class="w-4 h-4"></i> ย้อนกลับไปแก้ไข
+        </button>
+        <button onclick="doConfirmOrder()" class="flex-1 h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition flex items-center justify-center gap-1.5 shadow-sm">
+          ยืนยันและชำระเงิน <i data-lucide="check" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+  </div>`);
+}
+
+function doConfirmOrder() {
+  const methodNames = {
+    promptpay: 'พร้อมเพย์ QR',
+    card: 'บัตรเครดิต/เดบิต',
+    bank: 'โอนผ่านธนาคาร',
+    cod: 'เก็บเงินปลายทาง'
+  };
+
+  const order = placeOrder(u, {
+    recipient: $('rc').value.trim(),
+    phone: $('ph').value.trim(),
+    addr: $('ad').value.trim(),
+    lat: checkoutLat,
+    lng: checkoutLng,
+    payment: methodNames[currentMethod],
+    slipImage: uploadedSlipData || null
+  });
+
+  closeModal();
+  location.href = 'orders.html?new=' + order.no;
+}
+</script>
+</body></html>

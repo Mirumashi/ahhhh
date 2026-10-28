@@ -1,0 +1,316 @@
+<!DOCTYPE html><html lang="th"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ติดตามพัสดุและตำแหน่ง GPS · PharmaGo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Bricolage+Grotesque:opsz,wght@12..96,400;600;700;800&family=Fragment+Mono&family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=Mitr:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://cdn.tailwindcss.com"></script><script src="https://unpkg.com/lucide@latest"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="assets/js/db.js"></script><script src="assets/js/auth.js"></script><script src="assets/js/ui.js"></script>
+<style>
+  .glass { backdrop-filter: blur(14px); background: rgba(255,255,255,0.92); }
+  #trackingMap { height: 430px; width: 100%; z-index: 1; }
+  .leaflet-container { font-family: "IBM Plex Sans Thai", sans-serif; }
+</style>
+</head><body class="text-slate-800 antialiased min-h-screen flex flex-col font-sans bg-slate-50/40">
+<header id="nav" class="sticky top-0 z-40 bg-white/90 backdrop-blur"></header>
+
+<main class="max-w-5xl mx-auto px-4 py-8 flex-1 w-full">
+  <div class="flex items-center justify-between mb-6">
+    <a href="orders.html" class="inline-flex items-center gap-2 text-xs sm:text-sm font-bold text-slate-500 hover:text-emerald-700 transition font-display">
+      <i data-lucide="arrow-left" class="w-4 h-4"></i> กลับไปรายการสั่งซื้อ
+    </a>
+    <span class="text-xs text-slate-600 font-mono flex items-center gap-2 font-bold px-3 py-1 rounded-full bg-white border border-slate-200 shadow-xs">
+      <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
+      REAL-TIME GPS TRACKING
+    </span>
+  </div>
+  <div id="body"></div>
+</main>
+
+<script>
+const u = guard(['customer']);
+const tk = new URLSearchParams(location.search).get('tk');
+const hit = tk ? findSub(tk) : null;
+let trackMapInstance = null;
+let trackRiderMarker = null;
+let trackLine = null;
+let gpsInterval = null;
+
+if (u) {
+  renderNav('', 'orders');
+  if (!hit) {
+    $('body').innerHTML = `
+      <div class="py-24 text-center bg-white rounded-3xl border border-slate-200/80 shadow-xs p-8 max-w-lg mx-auto">
+        <div class="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 grid place-items-center mx-auto mb-4">
+          <i data-lucide="package-x" class="w-8 h-8"></i>
+        </div>
+        <h3 class="text-lg font-bold text-slate-800 font-display">ไม่พบหมายเลขพัสดุนี้</h3>
+        <p class="text-xs text-slate-500 mt-1">กรุณาตรวจสอบรหัสติดตามพัสดุ หรือกลับไปหน้าประวัติการสั่งซื้อ</p>
+        <a href="orders.html" class="mt-5 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 text-white font-bold text-xs hover:bg-slate-800 transition font-display">
+          ดูรายการคำสั่งซื้อ
+        </a>
+      </div>`;
+  } else {
+    draw(hit.s, hit.o);
+  }
+  icons();
+}
+
+function draw(s, o) {
+  const at = FLOW.indexOf(s.status);
+  const STEPS = [
+    { k:'paid',      t:'ร้านยารับคำสั่งซื้อ', sub:'ตรวจสอบรายการและยืนยันคำสั่งซื้อ', ic:'check-circle-2' },
+    { k:'preparing', t:'เภสัชกรกำลังจัดยา', sub:'ตรวจเช็กความถูกต้อง ป้ายยา และวันหมดอายุ', ic:'stethoscope' },
+    { k:'ready',     t:'ยาพร้อมส่ง · รอไรเดอร์', sub:'บรรจุหีบห่อเรียบร้อย รอไรเดอร์เข้ารับที่ร้าน', ic:'package-check' },
+    { k:'shipping',  t:'ไรเดอร์กำลังจัดส่ง', sub:'กำลังนำส่งไปยังที่อยู่ของคุณด้วย GPS เรียลไทม์', ic:'bike' },
+    { k:'delivered', t:'จัดส่งสำเร็จ', sub:'พัสดุส่งถึงมือผู้รับเรียบร้อยแล้ว', ic:'home' },
+  ];
+
+  $('body').innerHTML = `
+  <div class="grid lg:grid-cols-[1.55fr_1fr] gap-6">
+    <!-- Map Tracking Container (Leaflet OpenStreetMap) -->
+    <div class="rounded-3xl overflow-hidden shadow-xs bg-white border border-slate-200/80 flex flex-col">
+      <div class="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full ${s.status==='delivered'?'bg-emerald-500':'bg-emerald-500 animate-pulse'}"></span>
+          <span class="text-xs font-bold text-slate-800 font-display">แผนที่ตำแหน่งดาวเทียม GPS จริง</span>
+        </div>
+        <span class="text-[11px] font-mono text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">${s.tracking}</span>
+      </div>
+
+      <div class="relative overflow-hidden bg-slate-100">
+        <div id="trackingMap"></div>
+
+        <!-- ETA Floating Badge -->
+        <div class="absolute top-4 left-4 glass rounded-2xl px-4 py-3 shadow-md border border-white/80 z-[400] pointer-events-none">
+          <div class="text-[10px] text-slate-500 font-bold uppercase tracking-wider font-display">
+            ${s.status==='delivered'?'สถานะการส่ง':s.status==='shipping'?'เวลาถึงโดยประมาณ':'สถานะปัจจุบัน'}
+          </div>
+          <div class="text-xl sm:text-2xl font-black text-emerald-700 mt-0.5 font-display">
+            ${s.status==='delivered'?'ส่งถึงมือแล้ว ✓':s.status==='shipping'?'<span id="eta">12</span> นาที':'กำลังเตรียมยา'}
+          </div>
+          <div id="distTxt" class="text-[11px] text-slate-500 mt-0.5 font-mono"></div>
+        </div>
+
+        <div class="absolute bottom-4 right-4 glass rounded-xl px-3 py-1.5 text-xs font-bold text-slate-700 shadow-md border border-white/80 flex items-center gap-2 z-[400] pointer-events-none">
+          <span id="livePulse" class="w-2 h-2 rounded-full ${s.status==='shipping'?'bg-emerald-500 animate-ping':'bg-slate-400'}"></span>
+          <span id="liveGpsState">${s.status==='shipping'?'เชื่อมต่อสัญญาณ GPS':'แผนที่ดาวเทียม'}</span>
+        </div>
+      </div>
+
+      <!-- Quick Actions / Receipt button -->
+      <div class="p-4 bg-white border-t border-slate-100 flex items-center justify-between text-xs">
+        <div class="text-slate-500 font-medium">คำสั่งซื้อ <strong class="text-slate-800 font-mono">${o.no}</strong></div>
+        <button onclick="showReceiptModal('${o.no}', '${s.subNo}')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 text-slate-700 font-bold hover:bg-slate-50 transition shadow-xs">
+          <i data-lucide="printer" class="w-3.5 h-3.5 text-slate-500"></i> ดูใบเสร็จรับเงิน
+        </button>
+      </div>
+    </div>
+
+    <!-- Status Details Column -->
+    <div class="space-y-4">
+      <div class="bg-white rounded-3xl shadow-xs border border-slate-200/80 p-5">
+        <div class="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
+          <h3 class="font-bold text-slate-900 font-display text-sm">ขั้นตอนการจัดส่ง</h3>
+          <span class="px-2.5 py-1 rounded-full text-[10px] font-bold ${STATUS[s.status].c}">${STATUS[s.status].t}</span>
+        </div>
+
+        <!-- Timeline Steps (5 Steps) -->
+        <ol class="space-y-3 relative before:absolute before:left-[17px] before:top-3 before:bottom-3 before:w-0.5 before:bg-slate-100 font-display">
+          ${STEPS.map((st, i) => {
+            const isDone = i < at;
+            const isCurr = i === at;
+            return `
+            <li class="flex items-start gap-3.5 relative">
+              <span class="w-8 h-8 rounded-xl grid place-items-center shrink-0 z-10 font-bold transition text-xs ${
+                isCurr ? 'bg-emerald-600 text-white shadow-md shadow-emerald-500/20 ring-4 ring-emerald-50' :
+                isDone ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-400'
+              }">
+                <i data-lucide="${st.ic}" class="w-4 h-4"></i>
+              </span>
+              <div class="pt-0.5 flex-1">
+                <div class="text-xs font-bold ${isCurr ? 'text-emerald-700 font-display' : isDone ? 'text-slate-800' : 'text-slate-400'}">${st.t}</div>
+                <div class="text-[11px] text-slate-500 mt-0.5 font-sans">${st.sub}</div>
+              </div>
+            </li>`;
+          }).join('')}
+        </ol>
+
+        <!-- Rider Card -->
+        <div class="mt-5 pt-4 border-t border-slate-100">
+          ${s.rider ? `
+          <div class="flex items-center gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-200/60">
+            <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white font-bold grid place-items-center shadow-xs text-base">
+              🛵
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="text-xs font-bold text-slate-800 truncate font-display">${s.rider.name}</div>
+              <div class="text-[11px] text-slate-500 flex items-center gap-1.5 mt-0.5">
+                <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500"></span> ทะเบียน: ${s.rider.plate || 'กข 1234'}
+              </div>
+            </div>
+            <a href="tel:${s.rider.phone || '081-999-8888'}" class="w-9 h-9 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white grid place-items-center transition shadow-xs" title="โทรหาไรเดอร์">
+              <i data-lucide="phone" class="w-4 h-4"></i>
+            </a>
+          </div>` : `
+          <div class="p-3.5 rounded-2xl bg-violet-50/70 border border-violet-200/70 text-xs text-violet-900 flex items-start gap-2.5">
+            <i data-lucide="bike" class="w-4 h-4 text-violet-600 shrink-0 mt-0.5"></i>
+            <span>${s.status==='ready' ? 'ยาจัดเสร็จแล้ว กำลังรอไรเดอร์กดรับงานเข้ามารับพัสดุที่ร้าน' : 'เภสัชกรกำลังจัดเตรียมยา ระบบจะจัดส่งให้ไรเดอร์เมื่อยาพร้อมส่ง'}</span>
+          </div>`}
+        </div>
+
+        <!-- Address Card -->
+        <div class="mt-4 pt-4 border-t border-slate-100 text-xs">
+          <div class="font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+            <i data-lucide="map-pin" class="w-3.5 h-3.5 text-slate-400"></i> ที่อยู่จัดส่งของคุณ
+          </div>
+          <p class="text-slate-600 leading-relaxed pl-5 font-sans">${o.recipient} · ${o.phone}<br><span class="text-slate-500 text-[11px]">${o.addr}</span></p>
+        </div>
+      </div>
+
+      <!-- Items inside package summary -->
+      <div class="bg-white rounded-3xl shadow-xs border border-slate-200/80 p-5">
+        <h4 class="text-xs font-bold text-slate-800 mb-3 flex items-center gap-1.5 font-display">
+          <i data-lucide="package" class="w-4 h-4 text-emerald-600"></i> ยาในพัสดุนี้ (${s.items.length} รายการ)
+        </h4>
+        <div class="space-y-2.5">
+          ${s.items.map(it => `
+            <div class="flex items-center gap-3 py-1.5 border-b border-slate-100 last:border-0 text-xs font-sans">
+              ${productImg(it, 'w-9 h-9 rounded-lg object-cover border border-slate-200 shrink-0')}
+              <div class="flex-1 min-w-0">
+                <div class="font-semibold text-slate-800 truncate">${it.name}</div>
+                <div class="text-[11px] text-slate-400">${it.qty} × ฿${it.price}</div>
+              </div>
+              <div class="font-bold text-slate-800 font-mono">฿${(it.price * it.qty).toLocaleString()}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </div>
+  </div>`;
+  icons();
+
+  initCustomerLiveMap(s, o);
+}
+
+/* ── แผนที่ดาวเทียม OpenStreetMap + Leaflet Real GPS (OSRM Road Routing) ── */
+async function initCustomerLiveMap(s, o) {
+  const seller = userById(s.sellerId) || {};
+  const shopCoord = [seller.lat || 13.7307, seller.lng || 100.5690];
+  const destCoord = (o.lat && o.lng) ? [Number(o.lat), Number(o.lng)] : [13.7200, 100.5500];
+
+  if (trackMapInstance) {
+    trackMapInstance.remove();
+  }
+
+  trackMapInstance = L.map('trackingMap', { zoomControl: false }).setView(shopCoord, 14);
+  L.control.zoom({ position: 'bottomleft' }).addTo(trackMapInstance);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap contributors'
+  }).addTo(trackMapInstance);
+
+  // Shop Marker
+  const shopIcon = L.divIcon({
+    className: 'custom-shop-icon',
+    html: '<div style="background:#0284c7;color:#fff;width:34px;height:34px;border-radius:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 10px rgba(0,0,0,0.3);font-size:18px;border:2px solid #fff;">🏥</div>',
+    iconSize: [34, 34],
+    iconAnchor: [17, 17]
+  });
+  L.marker(shopCoord, { icon: shopIcon }).addTo(trackMapInstance).bindPopup(`<b>${s.shop}</b><br>ร้านขายยา`);
+
+  // Dest Marker
+  const destIcon = L.divIcon({
+    className: 'custom-dest-icon',
+    html: '<div style="background:#e11d48;color:#fff;width:34px;height:34px;border-radius:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 10px rgba(0,0,0,0.3);font-size:18px;border:2px solid #fff;">🏠</div>',
+    iconSize: [34, 34],
+    iconAnchor: [17, 17]
+  });
+  L.marker(destCoord, { icon: destIcon }).addTo(trackMapInstance).bindPopup(`<b>บ้านคุณ (${o.recipient})</b><br>${o.addr}`);
+
+  // Rider Icon
+  const riderIcon = L.divIcon({
+    className: 'custom-rider-icon',
+    html: '<div style="background:#059669;color:#fff;width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 7px rgba(5,150,105,0.25);font-size:20px;border:2px solid #fff;">🛵</div>',
+    iconSize: [38, 38],
+    iconAnchor: [19, 19]
+  });
+
+  let currentRiderPos = (s.status === 'delivered') ? destCoord : shopCoord;
+  trackRiderMarker = L.marker(currentRiderPos, { icon: riderIcon }).addTo(trackMapInstance);
+  trackRiderMarker.bindPopup(`<b>ไรเดอร์ PharmaGo</b><br>${s.rider ? s.rider.name : 'กำลังนำส่งยา'}`);
+
+  let routeCoords = [shopCoord, destCoord];
+  try {
+    const route = await fetchRoadRoute(shopCoord, destCoord);
+    routeCoords = route.coords || [shopCoord, destCoord];
+
+    // Casing line (Glow)
+    L.polyline(routeCoords, {
+      color: '#047857',
+      weight: 8,
+      opacity: 0.35
+    }).addTo(trackMapInstance);
+
+    // Main road line (LINE MAN / Grab emerald green)
+    trackLine = L.polyline(routeCoords, {
+      color: '#10b981',
+      weight: 5,
+      opacity: 0.95
+    }).addTo(trackMapInstance);
+
+    trackMapInstance.fitBounds(trackLine.getBounds(), { padding: [50, 50] });
+
+    // Initial ETA display
+    if ($('eta')) $('eta').textContent = Math.max(1, Math.round(route.durationS / 60));
+    if ($('distTxt')) $('distTxt').textContent = `ระยะทาง ${(route.distanceM / 1000).toFixed(1)} กม. ตามถนนจริง`;
+  } catch (e) {
+    trackLine = L.polyline([shopCoord, currentRiderPos, destCoord], {
+      color: '#059669',
+      weight: 5,
+      opacity: 0.85,
+      dashArray: '8, 8'
+    }).addTo(trackMapInstance);
+    trackMapInstance.fitBounds(L.latLngBounds([shopCoord, destCoord]), { padding: [50, 50] });
+  }
+
+  if (s.status === 'shipping') {
+    let animIdx = 0;
+    if (gpsInterval) clearInterval(gpsInterval);
+
+    gpsInterval = setInterval(() => {
+      // ตรวจสอบว่าไรเดอร์ส่ง GPS จริงผ่าน localStorage หรือไม่
+      const riderGPS = s.riderId ? getRiderGPS(s.riderId) : null;
+      let pos = null;
+
+      if (riderGPS && (Date.now() - riderGPS.at < 300000)) {
+        pos = [riderGPS.lat, riderGPS.lng];
+        if ($('liveGpsState')) $('liveGpsState').innerHTML = '<span class="text-emerald-700 font-bold">● สัญญาณดาวเทียม GPS สดจากไรเดอร์</span>';
+      } else {
+        // วิ่งตามแนวถนนจริง (OSRM vertices)
+        if (routeCoords && routeCoords.length > 1) {
+          animIdx = (animIdx + 1) % routeCoords.length;
+          pos = routeCoords[animIdx];
+        } else {
+          pos = shopCoord;
+        }
+        if ($('liveGpsState')) $('liveGpsState').textContent = 'นำทางตามแนวถนนจริง (GPS Live)';
+      }
+
+      if (pos && trackRiderMarker) {
+        trackRiderMarker.setLatLng(pos);
+
+        // คำนวณระยะทางและ ETA สดถึงปลายทาง
+        const dM = distM({ lat: pos[0], lng: pos[1] }, { lat: destCoord[0], lng: destCoord[1] });
+        const minutes = Math.max(1, Math.round((dM / 1000) / 25 * 60));
+        if ($('eta')) $('eta').textContent = minutes;
+        if ($('distTxt')) $('distTxt').textContent = `อีก ${(dM / 1000).toFixed(1)} กม. ถึงคุณ`;
+      }
+    }, 1600);
+  }
+}
+</script>
+</body></html>

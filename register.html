@@ -1,0 +1,432 @@
+<!DOCTYPE html><html lang="th"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>สมัครสมาชิก · PharmaGo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Bricolage+Grotesque:opsz,wght@12..96,400;600;700;800&family=Fragment+Mono&family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=Mitr:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script><script src="https://unpkg.com/lucide@latest"></script>
+<script src="assets/js/db.js"></script><script src="assets/js/auth.js"></script><script src="assets/js/ui.js"></script>
+</head><body class="font-sans text-slate-800 py-10 px-4 min-h-screen">
+
+<div class="max-w-lg mx-auto">
+  <a href="login.html" class="text-xs sm:text-sm font-bold text-slate-500 hover:text-emerald-700 flex items-center gap-1.5 mb-5 font-display transition">
+    <i data-lucide="arrow-left" class="w-4 h-4"></i> กลับหน้าเข้าสู่ระบบ
+  </a>
+
+  <div class="bg-white rounded-3xl border-2 border-slate-200/90 p-7 sm:p-9" style="box-shadow: 0 16px 40px rgba(24,50,43,0.07), inset 0 2px 1px rgba(255,255,255,0.9);">
+    <div class="flex items-center gap-2 mb-1">
+      <span class="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-blob text-sm">💊</span>
+      <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight font-display text-slate-900">สร้างบัญชีใหม่</h1>
+    </div>
+    <p class="text-xs sm:text-sm text-slate-500 font-display">เลือกประเภทบัญชีเพื่อเริ่มต้นใช้งานระบบ PharmaGo</p>
+
+    <div class="mt-6 grid grid-cols-3 gap-2.5 font-display">
+      <label class="cursor-pointer"><input type="radio" name="role" value="customer" class="peer sr-only" checked onchange="toggleRole()">
+        <div class="p-3 sm:p-4 rounded-2xl border-2 border-slate-200 peer-checked:border-emerald-600 peer-checked:bg-emerald-50/70 transition shadow-xs text-center sm:text-left">
+          <div class="text-2xl">👤</div>
+          <div class="font-bold text-xs sm:text-sm text-slate-900 mt-1">ลูกค้าทั่วไป</div>
+          <div class="text-[10px] text-slate-500 font-sans hidden sm:block">สั่งซื้อยา ปรึกษาเภสัช</div>
+        </div>
+      </label>
+      <label class="cursor-pointer"><input type="radio" name="role" value="seller" class="peer sr-only" onchange="toggleRole()">
+        <div class="p-3 sm:p-4 rounded-2xl border-2 border-slate-200 peer-checked:border-emerald-600 peer-checked:bg-emerald-50/70 transition shadow-xs text-center sm:text-left">
+          <div class="text-2xl">🏪</div>
+          <div class="font-bold text-xs sm:text-sm text-slate-900 mt-1">ร้านยา (ข.ย.1)</div>
+          <div class="text-[10px] text-slate-500 font-sans hidden sm:block">ลงขายยา มีใบอนุญาต</div>
+        </div>
+      </label>
+      <label class="cursor-pointer"><input type="radio" name="role" value="rider" class="peer sr-only" onchange="toggleRole()">
+        <div class="p-3 sm:p-4 rounded-2xl border-2 border-slate-200 peer-checked:border-emerald-600 peer-checked:bg-emerald-50/70 transition shadow-xs text-center sm:text-left">
+          <div class="text-2xl">🛵</div>
+          <div class="font-bold text-xs sm:text-sm text-slate-900 mt-1">ไรเดอร์ส่งยา</div>
+          <div class="text-[10px] text-slate-500 font-sans hidden sm:block">รับงานจัดส่งด่วน</div>
+        </div>
+      </label>
+    </div>
+
+    <form id="regForm" onsubmit="doReg(event)" class="mt-6 space-y-4 font-display">
+      <div>
+        <label class="text-xs font-bold text-slate-700">ชื่อ-นามสกุล *</label>
+        <input id="name" required class="mt-1 w-full h-12 px-4 rounded-2xl border-2 border-slate-200 focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100 outline-none text-sm transition font-sans">
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs font-bold text-slate-700">อีเมล *</label>
+          <input id="email" type="email" required class="mt-1 w-full h-12 px-4 rounded-2xl border-2 border-slate-200 focus:border-emerald-600 outline-none text-sm font-sans">
+        </div>
+        <div>
+          <label class="text-xs font-bold text-slate-700">เบอร์โทรศัพท์ *</label>
+          <input id="phone" required class="mt-1 w-full h-12 px-4 rounded-2xl border-2 border-slate-200 focus:border-emerald-600 outline-none text-sm font-sans">
+        </div>
+      </div>
+      <div>
+        <label class="text-xs font-bold text-slate-700">รหัสผ่าน *</label>
+        <input id="pass" type="password" required minlength="4" class="mt-1 w-full h-12 px-4 rounded-2xl border-2 border-slate-200 focus:border-emerald-600 outline-none text-sm font-sans">
+      </div>
+
+      <!-- ลูกค้า: ที่อยู่และปักหมุด -->
+      <div id="custBox" class="space-y-2">
+        <div class="flex items-center justify-between">
+          <label class="text-xs font-bold text-slate-700">ที่อยู่สำหรับจัดส่งพัสดุ</label>
+          <button type="button" onclick="pickPinForCust()" class="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 font-display">
+            <i data-lucide="map-pin" class="w-3.5 h-3.5 text-rose-500"></i> ปักหมุดแผนที่ (GPS)
+          </button>
+        </div>
+        <textarea id="addr" rows="2" class="w-full px-4 py-3 rounded-2xl border-2 border-slate-200 focus:border-emerald-600 outline-none text-sm resize-none font-sans" placeholder="บ้านเลขที่ ถนน แขวง/ตำบล เขต/อำเภอ จังหวัด"></textarea>
+        <div id="pinBadgeCust" class="text-[11px] font-mono text-slate-500 hidden items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-emerald-500"></span> พิกัดที่ปัก: <span id="pinCoordCustVal" class="font-bold text-slate-700"></span>
+        </div>
+      </div>
+
+      <!-- ร้านยา: ชื่อร้าน เลข ข.ย.1 แนบเอกสารใบอนุญาต ที่อยู่ ปักหมุด -->
+      <div id="shopBox" class="hidden space-y-3.5 p-4 rounded-2xl bg-emerald-50/60 border border-emerald-200">
+        <div>
+          <label class="text-xs font-bold text-emerald-950">ชื่อร้านยา / คลินิก *</label>
+          <input id="shop" class="mt-1 w-full h-11 px-3.5 rounded-xl border border-emerald-200 bg-white focus:border-emerald-600 outline-none text-sm font-sans" placeholder="เช่น ร้านยาสุขภาพดี สาขา 1">
+        </div>
+        
+        <div class="grid sm:grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs font-bold text-emerald-950">ประเภทใบอนุญาต *</label>
+            <select id="licenseType" class="mt-1 w-full h-11 px-3 rounded-xl border border-emerald-200 bg-white text-xs font-sans outline-none focus:border-emerald-600">
+              <option value="ข.ย.1">ใบอนุญาตขายยาแผนปัจจุบัน (แบบ ข.ย.๑)</option>
+              <option value="ข.ย.5">ใบอนุญาตขายยาแผนปัจจุบันบรรจุเสร็จ (แบบ ข.ย.๕)</option>
+              <option value="ภ.บ.">ใบประกอบวิชาชีพเภสัชกรรม (ภ.บ.)</option>
+              <option value="ทะเบียนพาณิชย์">ใบทะเบียนพาณิชย์ร้านยา</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs font-bold text-emerald-950">เลขที่ใบอนุญาตขายยา *</label>
+            <input id="license" placeholder="เช่น 12/2569 หรือ ภ.24589" class="mt-1 w-full h-11 px-3.5 rounded-xl border border-emerald-200 bg-white focus:border-emerald-600 outline-none text-sm font-sans">
+          </div>
+        </div>
+
+        <!-- ระบบแนบเอกสารใบอนุญาตขายยา (ข.ย.1 / ข.ย.5 / ภ.บ.) -->
+        <div class="pt-1">
+          <div class="flex items-center justify-between mb-1">
+            <label class="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
+              <i data-lucide="file-badge" class="w-4 h-4 text-emerald-700"></i> แนบเอกสาร/รูปถ่ายใบอนุญาตขายยา *
+            </label>
+            <span class="text-[10px] text-emerald-800 font-mono">JPG, PNG, PDF</span>
+          </div>
+
+          <!-- Dropzone Container -->
+          <div id="licenseDropzone" onclick="$('licenseFileInput').click()"
+            class="relative border-2 border-dashed border-emerald-300 hover:border-emerald-500 rounded-2xl p-4 bg-white hover:bg-emerald-50/50 transition cursor-pointer text-center group">
+            
+            <input type="file" id="licenseFileInput" accept="image/*,.pdf" class="hidden" onchange="handleLicenseFile(this.files[0])">
+            
+            <!-- Default Empty State -->
+            <div id="licenseEmptyState" class="space-y-1.5 py-1">
+              <div class="w-10 h-10 rounded-xl bg-emerald-100/70 text-emerald-700 flex items-center justify-center text-xl mx-auto group-hover:scale-110 transition">
+                📜
+              </div>
+              <div class="text-xs font-bold text-emerald-950">
+                คลิกเพื่อแนบไฟล์ใบอนุญาต หรือลากไฟล์มาวางที่นี่
+              </div>
+              <p class="text-[11px] text-slate-500 font-sans">
+                รูปถ่ายใบอนุญาต ข.ย. ที่มีตราครุฑและลายเซ็นนายทะเบียนยาชัดเจน
+              </p>
+            </div>
+
+            <!-- Uploaded Preview State (Hidden initially) -->
+            <div id="licensePreviewBox" class="hidden items-center gap-3 text-left">
+              <div id="licenseThumbWrapper" class="w-16 h-16 rounded-xl overflow-hidden border border-emerald-300 shrink-0 bg-slate-100 flex items-center justify-center shadow-xs">
+                <img id="licensePreviewImg" src="" alt="License Preview" class="w-full h-full object-cover hidden">
+                <span id="licensePdfIcon" class="text-2xl hidden">📑</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-bold">✓ แนบเอกสารสำเร็จ</span>
+                  <span id="licenseFileSize" class="text-[10px] text-slate-400 font-mono"></span>
+                </div>
+                <div id="licenseFileName" class="text-xs font-bold text-slate-900 truncate mt-0.5"></div>
+                <div class="text-[11px] text-emerald-700 font-sans mt-0.5">คลิกที่กล่องเพื่อเปลี่ยนไฟล์ใหม่</div>
+              </div>
+              <button type="button" onclick="event.stopPropagation(); clearLicenseFile();" class="w-8 h-8 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 flex items-center justify-center transition" title="ลบไฟล์">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Quick Test Demo Button -->
+          <div class="flex items-center justify-between mt-2 pt-1 text-xs">
+            <span class="text-[11px] text-slate-500 font-sans">ต้องการทดสอบอย่างรวดเร็ว?</span>
+            <button type="button" onclick="loadSampleLicenseDoc()" class="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 bg-white hover:bg-emerald-100 px-3 py-1 rounded-xl border border-emerald-200 transition flex items-center gap-1 font-display shadow-2xs">
+              ✨ ใช้ตัวอย่างใบ ข.ย.1 จำลอง
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between">
+            <label class="text-xs font-bold text-emerald-950">ที่ตั้งร้านขายยา</label>
+            <button type="button" onclick="pickPinForCust()" class="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 font-display">
+              <i data-lucide="map-pin" class="w-3.5 h-3.5 text-rose-500"></i> ปักหมุดร้าน
+            </button>
+          </div>
+          <textarea id="shopAddr" rows="2" class="mt-1 w-full px-3.5 py-2.5 rounded-xl border border-emerald-200 bg-white focus:border-emerald-600 outline-none text-sm resize-none font-sans" placeholder="ที่ตั้งร้านเพื่อคำนวณระยะทางไรเดอร์"></textarea>
+        </div>
+        <p class="text-[11px] text-amber-900 flex gap-2 font-sans leading-relaxed">
+          <i data-lucide="alert-triangle" class="w-4 h-4 shrink-0 text-amber-700 mt-0.5"></i>
+          บัญชีร้านค้าจะต้องได้รับการตรวจสอบเอกสาร ข.ย. จากผู้ดูแลระบบ (Admin) ก่อนเริ่มเปิดรับออเดอร์
+        </p>
+      </div>
+
+      <!-- ไรเดอร์: รุ่นรถ เลขทะเบียน เลขที่ใบขับขี่ -->
+      <div id="riderBox" class="hidden space-y-3.5 p-4 rounded-2xl bg-blue-50/60 border border-blue-200">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs font-bold text-blue-950">รุ่นยานพาหนะ *</label>
+            <input id="vehicle" placeholder="เช่น Honda Wave 110i" class="mt-1 w-full h-11 px-3.5 rounded-xl border border-blue-200 bg-white focus:border-blue-600 outline-none text-sm font-sans">
+          </div>
+          <div>
+            <label class="text-xs font-bold text-blue-950">เลขทะเบียนรถ *</label>
+            <input id="plate" placeholder="เช่น 1กข 1234 กทม." class="mt-1 w-full h-11 px-3.5 rounded-xl border border-blue-200 bg-white focus:border-blue-600 outline-none text-sm font-sans">
+          </div>
+        </div>
+        <div>
+          <label class="text-xs font-bold text-blue-950">เลขที่ใบอนุญาตขับขี่จักรยานยนต์</label>
+          <input id="driverLicense" placeholder="เช่น ท.2-123456" class="mt-1 w-full h-11 px-3.5 rounded-xl border border-blue-200 bg-white focus:border-blue-600 outline-none text-sm font-sans">
+        </div>
+        <p class="text-[11px] text-blue-900 flex gap-2 font-sans leading-relaxed">
+          <i data-lucide="shield-check" class="w-4 h-4 shrink-0 text-blue-700 mt-0.5"></i>
+          บัญชีไรเดอร์จะต้องได้รับการอนุมัติเอกสารยานพาหนะจาก Admin ก่อนเริ่มรับงานจัดส่งยา
+        </p>
+      </div>
+
+      <p id="err" class="text-xs text-rose-600 font-bold hidden"></p>
+      <button class="w-full h-12 rounded-2xl bg-emerald-600 text-white font-bold font-display shadow-md hover:bg-emerald-700 transition" style="box-shadow: inset 0 2px 2px rgba(255,255,255,0.4), 0 6px 18px rgba(21,95,77,0.25);">
+        สร้างบัญชีผู้ใช้
+      </button>
+    </form>
+
+    <!-- หน้าต่างแจ้งรออนุมัติ (Pending Screen) -->
+    <div id="pendingSuccessBox" class="hidden mt-6 text-center space-y-4 font-display">
+      <div class="w-16 h-16 rounded-3xl bg-amber-100 text-amber-700 flex items-center justify-center text-3xl mx-auto">
+        ⏳
+      </div>
+      <div>
+        <h3 class="text-xl font-bold text-slate-900">ลงทะเบียนสำเร็จแล้ว!</h3>
+        <p class="text-xs text-slate-500 font-sans mt-1 leading-relaxed max-w-sm mx-auto">
+          เนื่องจากเป็นบัญชีร้านยา/ไรเดอร์ ระบบได้ส่งข้อมูลให้ผู้ดูแลระบบ (Admin) ตรวจสอบเอกสารแล้ว บัญชีจะเปิดใช้งานทันทีเมื่อได้รับการกดอนุมัติครับ
+        </p>
+      </div>
+      <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-left text-xs space-y-1.5 font-sans">
+        <div class="font-bold text-slate-800 font-display">ข้อมูลของคุณ:</div>
+        <div class="text-slate-600">ชื่อ: <b id="regResultName" class="text-slate-900"></b></div>
+        <div class="text-slate-600">อีเมล: <span id="regResultEmail" class="font-mono text-slate-900"></span></div>
+        <div class="text-slate-600">สถานะ: <span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold text-[10px]">รอแอดมินอนุมัติ (Pending)</span></div>
+      </div>
+      <div class="pt-2 flex flex-col sm:flex-row gap-2.5">
+        <a href="login.html" class="flex-1 h-11 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs flex items-center justify-center transition">
+          ไปหน้าเข้าสู่ระบบ
+        </a>
+        <a href="admin/users.html" class="flex-1 h-11 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition" title="ทดสอบในฐานะแอดมิน">
+          👑 ไปหน้าแอดมินเพื่อกดอนุมัติ
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let pinnedLat = null;
+let pinnedLng = null;
+let licenseBase64Data = null;
+let licenseFileNameStr = '';
+
+const roleVal = () => document.querySelector('[name=role]:checked').value;
+
+function toggleRole() {
+  const r = roleVal();
+  $('custBox').classList.toggle('hidden', r !== 'customer');
+  $('shopBox').classList.toggle('hidden', r !== 'seller');
+  $('riderBox').classList.toggle('hidden', r !== 'rider');
+}
+
+/* ── ระบบจัดการไฟล์แนบใบอนุญาตขายยา ── */
+function handleLicenseFile(file) {
+  if (!file) return;
+  if (file.size > 10 * 1024 * 1024) {
+    alert('ขนาดไฟล์เกิน 10MB กรุณาเลือกไฟล์ที่เล็กลง');
+    return;
+  }
+  const sizeKb = (file.size / 1024).toFixed(1) + ' KB';
+  const reader = new FileReader();
+  reader.onload = e => {
+    setLicenseAttachment(e.target.result, file.name, sizeKb, file.type);
+  };
+  reader.readAsDataURL(file);
+}
+
+function setLicenseAttachment(dataUrl, name, sizeStr, mime = '') {
+  licenseBase64Data = dataUrl;
+  licenseFileNameStr = name;
+
+  $('licenseEmptyState')?.classList.add('hidden');
+  $('licensePreviewBox')?.classList.remove('hidden');
+  $('licensePreviewBox')?.classList.add('flex');
+
+  if ($('licenseFileName')) $('licenseFileName').textContent = name;
+  if ($('licenseFileSize')) $('licenseFileSize').textContent = sizeStr || '';
+
+  const isPdf = name.toLowerCase().endsWith('.pdf') || mime.includes('pdf');
+  const img = $('licensePreviewImg');
+  const pdfIcon = $('licensePdfIcon');
+
+  if (isPdf) {
+    img?.classList.add('hidden');
+    pdfIcon?.classList.remove('hidden');
+  } else {
+    pdfIcon?.classList.add('hidden');
+    if (img) {
+      img.src = dataUrl;
+      img.classList.remove('hidden');
+    }
+  }
+  $('err')?.classList.add('hidden');
+}
+
+function clearLicenseFile() {
+  licenseBase64Data = null;
+  licenseFileNameStr = '';
+  if ($('licenseFileInput')) $('licenseFileInput').value = '';
+  $('licenseEmptyState')?.classList.remove('hidden');
+  $('licensePreviewBox')?.classList.add('hidden');
+  $('licensePreviewBox')?.classList.remove('flex');
+  if ($('licensePreviewImg')) $('licensePreviewImg').src = '';
+}
+
+function loadSampleLicenseDoc() {
+  const shopName = $('shop')?.value.trim() || 'ร้านขายยา ฟาร์มาโก สุขุมวิท';
+  const licType = $('licenseType') ? $('licenseType').value : 'ข.ย.1';
+  let licNo = $('license')?.value.trim();
+  if (!licNo) {
+    licNo = 'กท 12/2569';
+    if ($('license')) $('license').value = licNo;
+  }
+  if (!$('shop').value) $('shop').value = shopName;
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="440" viewBox="0 0 640 440">
+    <rect width="640" height="440" fill="#fefdfa" stroke="#166534" stroke-width="8" rx="10"/>
+    <rect x="14" y="14" width="612" height="412" fill="none" stroke="#15803d" stroke-width="2" stroke-dasharray="8,5"/>
+    
+    <!-- Emblem / Title -->
+    <text x="320" y="52" font-family="'IBM Plex Sans Thai', sans-serif" font-size="24" font-weight="bold" fill="#14532d" text-anchor="middle">👑 ใบอนุญาตขายยาแผนปัจจุบัน</text>
+    <text x="320" y="78" font-family="'IBM Plex Sans Thai', sans-serif" font-size="13" font-weight="600" fill="#166534" text-anchor="middle">แบบ ${licType} ตามพระราชบัญญัติยา พ.ศ. ๒๕๑๐</text>
+    <line x1="80" y1="94" x2="560" y2="94" stroke="#16a34a" stroke-width="1.2"/>
+
+    <!-- Content Rows -->
+    <text x="70" y="132" font-family="'IBM Plex Sans Thai', sans-serif" font-size="13" fill="#475569">เลขที่ใบอนุญาต:</text>
+    <text x="200" y="132" font-family="'Fragment Mono', monospace" font-size="14" font-weight="bold" fill="#0f172a">${licNo}</text>
+
+    <text x="70" y="168" font-family="'IBM Plex Sans Thai', sans-serif" font-size="13" fill="#475569">ชื่อสถานที่ขายยา:</text>
+    <text x="200" y="168" font-family="'IBM Plex Sans Thai', sans-serif" font-size="14" font-weight="bold" fill="#0f172a">${shopName}</text>
+
+    <text x="70" y="204" font-family="'IBM Plex Sans Thai', sans-serif" font-size="13" fill="#475569">ผู้รับอนุญาต:</text>
+    <text x="200" y="204" font-family="'IBM Plex Sans Thai', sans-serif" font-size="13" font-weight="bold" fill="#0f172a">${$('name').value || 'ภก. วรเมธ เจริญสุข (ภ.28491)'}</text>
+
+    <text x="70" y="240" font-family="'IBM Plex Sans Thai', sans-serif" font-size="13" fill="#475569">ที่ตั้งสถานประกอบการ:</text>
+    <text x="200" y="240" font-family="'IBM Plex Sans Thai', sans-serif" font-size="12" fill="#334155">${$('shopAddr').value || 'เขตวัฒนา กรุงเทพมหานคร'}</text>
+
+    <text x="70" y="276" font-family="'IBM Plex Sans Thai', sans-serif" font-size="13" fill="#475569">วันหมดอายุใบอนุญาต:</text>
+    <text x="200" y="276" font-family="'IBM Plex Sans Thai', sans-serif" font-size="13" font-weight="bold" fill="#15803d">๓๑ ธันวาคม ๒๕๗๐</text>
+
+    <!-- Official Stamp & Seal -->
+    <circle cx="510" cy="275" r="46" fill="#fef2f2" stroke="#dc2626" stroke-width="2.5" stroke-dasharray="5,3"/>
+    <text x="510" y="270" font-family="'IBM Plex Sans Thai', sans-serif" font-size="12" font-weight="bold" fill="#b91c1c" text-anchor="middle">กองควบคุมยา</text>
+    <text x="510" y="286" font-family="'IBM Plex Sans Thai', sans-serif" font-size="10" font-weight="bold" fill="#b91c1c" text-anchor="middle">อย. ตรวจถูกต้อง</text>
+
+    <!-- Signature line -->
+    <line x1="380" y1="375" x2="570" y2="375" stroke="#94a3b8" stroke-width="1"/>
+    <text x="475" y="395" font-family="'IBM Plex Sans Thai', sans-serif" font-size="11" fill="#64748b" text-anchor="middle">นายทะเบียนยา / เลขาธิการ อย.</text>
+  </svg>`;
+
+  const base64Data = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  setLicenseAttachment(base64Data, `ใบอนุญาต_${licType}_จำลอง.svg`, '22 KB', 'image/svg+xml');
+  toast('โหลดตัวอย่างใบอนุญาต ข.ย. จำลองเรียบร้อยแล้ว ✓');
+}
+
+function pickPinForCust() {
+  openPinPickerModal({
+    lat: pinnedLat || 13.7367,
+    lng: pinnedLng || 100.5231,
+    title: roleVal() === 'seller' ? '📍 ปักหมุดที่ตั้งร้านขายยา' : '📍 ปักหมุดที่อยู่รับยา',
+    onConfirm: ({ lat, lng, desc }) => {
+      pinnedLat = lat;
+      pinnedLng = lng;
+      if (roleVal() === 'customer') {
+        $('pinBadgeCust')?.classList.remove('hidden');
+        $('pinBadgeCust')?.classList.add('flex');
+        if ($('pinCoordCustVal')) $('pinCoordCustVal').textContent = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+        if (desc && !$('addr').value) $('addr').value = desc;
+      } else if (roleVal() === 'seller') {
+        if (desc && !$('shopAddr').value) $('shopAddr').value = desc;
+      }
+      toast('ปักหมุดแผนที่เรียบร้อยแล้ว ✓');
+    }
+  });
+}
+
+function doReg(ev) {
+  ev.preventDefault();
+  const role = roleVal();
+  const data = {
+    role,
+    name: $('name').value.trim(),
+    email: $('email').value.trim(),
+    phone: $('phone').value.trim(),
+    pass: $('pass').value,
+    lat: pinnedLat,
+    lng: pinnedLng
+  };
+
+  if (role === 'seller') {
+    if (!$('shop').value.trim() || !$('license').value.trim()) {
+      $('err').textContent = 'กรุณากรอกชื่อร้านและเลขที่ใบอนุญาตขายยาให้ครบถ้วน';
+      $('err').classList.remove('hidden'); return;
+    }
+    if (!licenseBase64Data) {
+      $('err').textContent = 'กรุณาแนบไฟล์รูปถ่ายใบอนุญาตขายยา (ข.ย.1 / ข.ย.5) ก่อนกดยืนยัน';
+      $('err').classList.remove('hidden'); return;
+    }
+    const licType = $('licenseType') ? $('licenseType').value : 'ข.ย.1';
+    data.shop = $('shop').value.trim();
+    data.license = `${licType} เลขที่ ${$('license').value.trim()}`;
+    data.licenseType = licType;
+    data.licenseImg = licenseBase64Data;
+    data.licenseFileName = licenseFileNameStr || 'license_document.png';
+    data.licenseUploadedAt = new Date().toISOString();
+    data.addr = $('shopAddr').value.trim();
+  } else if (role === 'rider') {
+    if (!$('vehicle').value.trim() || !$('plate').value.trim()) {
+      $('err').textContent = 'กรุณากรอกรุ่นยานพาหนะและเลขทะเบียนรถ';
+      $('err').classList.remove('hidden'); return;
+    }
+    data.vehicle = $('vehicle').value.trim();
+    data.plate = $('plate').value.trim();
+    data.driverLicense = $('driverLicense').value.trim();
+  } else {
+    data.addr = $('addr').value.trim();
+  }
+
+  const r = register(data);
+  if (!r.ok) {
+    $('err').textContent = r.msg;
+    $('err').classList.remove('hidden');
+    return;
+  }
+
+  // หากเป็น seller หรือ rider ที่ต้องรออนุมัติ ให้แสดงหน้าต่างรอการอนุมัติ
+  if (r.user.status === 'pending') {
+    $('regForm').classList.add('hidden');
+    $('pendingSuccessBox').classList.remove('hidden');
+    $('regResultName').textContent = r.user.name;
+    $('regResultEmail').textContent = r.user.email;
+  } else {
+    location.href = homeOf(r.user);
+  }
+}
+icons();
+</script></body></html>

@@ -1,0 +1,95 @@
+<!DOCTYPE html><html lang="th"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>เข้าสู่ระบบ · PharmaGo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Bricolage+Grotesque:opsz,wght@12..96,400;600;700;800&family=Fragment+Mono&family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=Mitr:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script><script src="https://unpkg.com/lucide@latest"></script>
+<script src="assets/js/db.js"></script><script src="assets/js/auth.js"></script><script src="assets/js/ui.js"></script>
+</head><body class="font-sans text-slate-800 min-h-screen grid lg:grid-cols-2">
+
+<div class="hidden lg:flex flex-col justify-between p-12 bg-gradient-to-br from-emerald-800 via-teal-700 to-indigo-900 text-white relative overflow-hidden">
+  <div class="absolute -right-20 -bottom-20 w-96 h-96 rounded-full border-[40px] border-amber-300/20 pointer-events-none"></div>
+  <a href="index.html" class="flex items-center gap-2.5 font-blob text-2xl tracking-wide z-10"><i data-lucide="pill" class="w-7 h-7 text-emerald-300"></i> PharmaGo</a>
+  <div class="z-10">
+    <div class="sticker-badge bg-white/20 text-white border-white/30 backdrop-blur mb-5 font-display">
+      <i data-lucide="shield-check" class="w-4 h-4 text-emerald-300"></i> ปลอดภัย ควบคุมโดยเภสัชกร
+    </div>
+    <h2 class="text-4xl sm:text-5xl font-extrabold leading-tight font-display">ร้านยาออนไลน์<br><span class="text-emerald-300 font-blob">ที่เภสัชกรดูแล</span>ทุกออเดอร์</h2>
+    <p class="mt-4 text-white/80 max-w-sm font-sans leading-relaxed text-sm">เข้าสู่ระบบเพื่อสั่งซื้อยา ตรวจเช็กใบสั่งยา ติดตามพัสดุบนแผนที่ หรือจัดการร้านค้าของคุณ</p>
+    <div class="mt-8 space-y-3.5 text-xs font-display">
+      <div class="flex items-center gap-3"><span class="w-6 h-6 rounded-full bg-emerald-500/30 flex items-center justify-center text-xs">✓</span> ยาแท้ 100% จากร้านที่มีใบอนุญาต ข.ย.1</div>
+      <div class="flex items-center gap-3"><span class="w-6 h-6 rounded-full bg-emerald-500/30 flex items-center justify-center text-xs">✓</span> ติดตามไรเดอร์และตำแหน่ง GPS แบบเรียลไทม์</div>
+      <div class="flex items-center gap-3"><span class="w-6 h-6 rounded-full bg-emerald-500/30 flex items-center justify-center text-xs">✓</span> ปรึกษาเภสัชกรฟรีทุกคำสั่งซื้อตลอด 24 ชั่วโมง</div>
+    </div>
+  </div>
+  <p class="text-xs text-white/60 font-mono z-10">© 2026 PharmaGo Healthcare · Studio Mallow Edition</p>
+</div>
+
+<div class="flex items-center justify-center p-6 sm:p-10 bg-slate-50/60">
+  <div class="w-full max-w-sm">
+    <a href="index.html" class="lg:hidden flex items-center gap-2 font-blob text-xl mb-8"><i data-lucide="pill" class="w-6 h-6 text-brand-600"></i> PharmaGo</a>
+    <h1 class="text-3xl font-extrabold tracking-tight font-display">เข้าสู่ระบบ</h1>
+    <p class="text-sm text-slate-500 mt-1 font-display">ยินดีต้อนรับกลับสู่ PharmaGo ครับ 👋</p>
+
+    <form onsubmit="doLogin(event)" class="mt-7 space-y-4 font-display">
+      <div>
+        <label class="text-xs font-bold text-slate-700">อีเมล</label>
+        <input id="email" type="email" required placeholder="you@email.com"
+          class="mt-1 w-full h-12 px-4 rounded-2xl border-2 border-slate-200 bg-white focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100 outline-none text-sm transition font-sans">
+      </div>
+      <div>
+        <label class="text-xs font-bold text-slate-700">รหัสผ่าน</label>
+        <div class="relative mt-1">
+          <input id="pass" type="password" required placeholder="••••••"
+            class="w-full h-12 px-4 pr-11 rounded-2xl border-2 border-slate-200 bg-white focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100 outline-none text-sm transition font-sans">
+          <button type="button" onclick="const p=$('pass');p.type=p.type==='password'?'text':'password'"
+            class="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"><i data-lucide="eye" class="w-4 h-4"></i></button>
+        </div>
+      </div>
+      <p id="err" class="text-xs text-rose-600 font-bold hidden"></p>
+      <button class="w-full h-12 rounded-2xl bg-emerald-600 text-white font-bold font-display shadow-md hover:bg-emerald-700 transition" style="box-shadow: inset 0 2px 2px rgba(255,255,255,0.4), 0 6px 18px rgba(21,95,77,0.25);">
+        เข้าสู่ระบบ
+      </button>
+    </form>
+
+    <div class="my-6 flex items-center gap-3 text-xs text-slate-400 font-display"><span class="flex-1 h-px bg-slate-200"></span>บัญชีทดลองกดคลิกเดียว<span class="flex-1 h-px bg-slate-200"></span></div>
+    <div class="grid grid-cols-2 gap-2.5 font-display">
+      <button onclick="fill('user@demo.com')" class="p-3 rounded-2xl bg-white border-2 border-slate-200 hover:border-emerald-500 transition text-left shadow-xs">
+        <div class="text-xl">👤</div>
+        <div class="text-xs font-bold text-slate-900 mt-1">ลูกค้า</div>
+        <div class="text-[9px] text-slate-400 font-mono truncate">user@demo.com</div>
+      </button>
+      <button onclick="fill('seller@demo.com')" class="p-3 rounded-2xl bg-white border-2 border-slate-200 hover:border-emerald-500 transition text-left shadow-xs">
+        <div class="text-xl">🏪</div>
+        <div class="text-xs font-bold text-slate-900 mt-1">ร้านยา (ข.ย.1)</div>
+        <div class="text-[9px] text-slate-400 font-mono truncate">seller@demo.com</div>
+      </button>
+      <button onclick="fill('rider@demo.com')" class="p-3 rounded-2xl bg-white border-2 border-slate-200 hover:border-emerald-500 transition text-left shadow-xs">
+        <div class="text-xl">🛵</div>
+        <div class="text-xs font-bold text-slate-900 mt-1">ไรเดอร์ส่งยา</div>
+        <div class="text-[9px] text-slate-400 font-mono truncate">rider@demo.com</div>
+      </button>
+      <button onclick="fill('admin@demo.com')" class="p-3 rounded-2xl bg-white border-2 border-indigo-200 hover:border-indigo-500 bg-indigo-50/20 transition text-left shadow-xs">
+        <div class="text-xl">👑</div>
+        <div class="text-xs font-bold text-indigo-900 mt-1">แอดมินหลังบ้าน</div>
+        <div class="text-[9px] text-indigo-500 font-mono truncate">admin@demo.com</div>
+      </button>
+    </div>
+    <p class="mt-6 text-sm text-center text-slate-500 font-display">ยังไม่มีบัญชี?
+      <a href="register.html" class="font-bold text-emerald-700 hover:underline">สมัครสมาชิก</a></p>
+  </div>
+</div>
+
+<script>
+const next = new URLSearchParams(location.search).get('next');
+const fill = e => { $('email').value = e; $('pass').value = '1234'; };
+function doLogin(ev) {
+  ev.preventDefault();
+  const r = login($('email').value, $('pass').value);
+  if (!r.ok) { $('err').textContent = r.msg; $('err').classList.remove('hidden'); return; }
+  location.href = next && !next.includes('login') ? next : homeOf(r.user);
+}
+if (currentUser()) location.replace(homeOf(currentUser()));
+icons();
+</script></body></html>

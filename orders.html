@@ -1,0 +1,319 @@
+<!DOCTYPE html><html lang="th"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ออเดอร์ของฉัน · PharmaGo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Bricolage+Grotesque:opsz,wght@12..96,400;600;700;800&family=Fragment+Mono&family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=Mitr:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script><script src="https://unpkg.com/lucide@latest"></script>
+<script src="assets/js/db.js"></script><script src="assets/js/auth.js"></script><script src="assets/js/ui.js"></script>
+</head><body class="font-sans text-slate-800 antialiased min-h-screen flex flex-col bg-slate-50/40">
+
+<header id="nav" class="sticky top-0 z-40 bg-white/90 backdrop-blur"></header>
+
+<main class="max-w-4xl mx-auto px-4 sm:px-6 py-8 flex-1 w-full">
+  <div class="flex items-center justify-between mb-6">
+    <div class="flex items-center gap-2.5">
+      <a href="index.html" class="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-emerald-700 hover:border-emerald-300 transition shadow-xs" title="กลับหน้าร้านค้า">
+        <i data-lucide="arrow-left" class="w-4 h-4"></i>
+      </a>
+      <div>
+        <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight font-display">ประวัติคำสั่งซื้อของฉัน</h1>
+        <p class="text-xs text-slate-500 font-display">ติดตามสถานะ แก้ไขที่อยู่ หรือยกเลิกคำสั่งซื้อ</p>
+      </div>
+    </div>
+    <a href="index.html" class="text-xs font-bold font-display text-emerald-700 hover:underline flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200">
+      <i data-lucide="store" class="w-3.5 h-3.5"></i> เลือกซื้อยาเพิ่ม
+    </a>
+  </div>
+
+  <div id="list" class="space-y-6"></div>
+</main>
+
+<script>
+const u = guard(['customer']);
+const isNew = new URLSearchParams(location.search).get('new');
+
+if (u) {
+  render();
+  window.addEventListener('storage', () => render());
+}
+
+function render() {
+  reloadDB();
+  renderNav('', 'orders');
+  const mine = DB.orders.filter(o => o.userId === u.id);
+  
+  $('list').innerHTML = mine.length ? mine.map(o => {
+    // ตรวจสอบว่าสามารถกดยกเลิกได้หรือไม่ (ยังไม่เริ่มนำส่ง)
+    const canCancel = o.subs.every(s => s.status === 'paid' || s.status === 'preparing' || s.status === 'ready');
+    const isAllCancelled = o.subs.every(s => s.status === 'cancelled');
+    const canEditAddress = o.subs.some(s => s.status !== 'delivered' && s.status !== 'cancelled' && s.status !== 'shipping');
+
+    return `
+    <article class="bg-white rounded-3xl border-2 ${o.no===isNew?'border-emerald-500 ring-4 ring-emerald-100 shadow-md':'border-slate-200/80 shadow-xs'} overflow-hidden transition" style="box-shadow: 0 10px 30px rgba(24,50,43,0.05);">
+      <!-- ส่วนหัวออเดอร์ -->
+      <div class="px-5 py-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/70 text-xs font-display">
+        <div>
+          <div class="font-bold text-slate-900 flex items-center gap-2">
+            <span>เลขที่คำสั่งซื้อ: <span class="font-mono text-emerald-800 font-bold">${o.no}</span></span>
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold ${isAllCancelled ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'}">
+              ${isAllCancelled ? 'ยกเลิกคำสั่งซื้อแล้ว' : (o.payment || 'ชำระเงินแล้ว')}
+            </span>
+          </div>
+          <div class="text-[11px] text-slate-500 mt-0.5 font-sans">
+            ${new Date(o.createdAt).toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'})}
+          </div>
+        </div>
+        <div class="text-right">
+          <div class="text-[10px] text-slate-500">ยอดรวมทั้งสิ้น</div>
+          <div class="font-blob text-slate-900 text-base sm:text-lg">${baht(o.total)}</div>
+        </div>
+      </div>
+
+      <!-- กล่องข้อมูลที่อยู่จัดส่ง + ปุ่มแก้ไขที่อยู่จัดส่ง (ก่อนส่ง) -->
+      <div class="px-5 py-3 bg-amber-50/40 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+        <div class="flex items-start gap-2.5">
+          <i data-lucide="map-pin" class="w-4 h-4 text-amber-700 shrink-0 mt-0.5"></i>
+          <div>
+            <div class="font-semibold text-slate-900">
+              ผู้รับ: <b>${o.recipient}</b> (โทร. ${o.phone})
+            </div>
+            <div class="text-slate-600 text-[11.5px] mt-0.5">${o.addr}</div>
+            ${o.lat ? `<div class="text-[10px] text-emerald-700 font-mono mt-0.5 flex items-center gap-1">📍 พิกัด GPS: ${o.lat.toFixed(4)}, ${o.lng.toFixed(4)}</div>` : ''}
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 shrink-0">
+          ${canEditAddress ? `
+            <button onclick="openEditAddressModal('${o.no}')" class="h-8 px-3 rounded-xl bg-white border border-slate-300 hover:border-emerald-500 text-slate-700 hover:text-emerald-800 font-semibold text-xs flex items-center gap-1.5 transition shadow-xs">
+              <i data-lucide="edit-3" class="w-3.5 h-3.5 text-emerald-600"></i> แก้ไขที่อยู่ / เบอร์โทร
+            </button>` : ''}
+          ${canCancel ? `
+            <button onclick="openCustomerCancelModal('${o.no}')" class="h-8 px-3 rounded-xl bg-rose-50 border border-rose-200 hover:bg-rose-100 text-rose-700 font-semibold text-xs flex items-center gap-1.5 transition">
+              <i data-lucide="x-circle" class="w-3.5 h-3.5"></i> ยกเลิกออเดอร์
+            </button>` : ''}
+        </div>
+      </div>
+
+      <!-- รายการร้านค้าย่อยในออเดอร์ -->
+      ${o.subs.map(s => `
+      <div class="p-5 sm:p-6 border-b border-slate-100 last:border-0">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-4 font-display">
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+              <span class="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center text-xs">🏪</span>
+              ${s.shop}
+            </span>
+            <span class="px-3 py-0.5 rounded-full text-[10px] font-bold ${STATUS[s.status].c}">
+              ${STATUS[s.status].t}
+            </span>
+          </div>
+          <span class="text-[11px] font-mono text-slate-500">รหัสพัสดุ: <b>${s.tracking}</b></span>
+        </div>
+
+        ${s.cancelReason ? `
+          <div class="mb-3 p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs">
+            <b>เหตุผลที่ยกเลิก:</b> ${s.cancelReason} (ระบบคืนสต็อกยาเรียบร้อยแล้ว)
+          </div>` : ''}
+
+        <!-- รายการสินค้า -->
+        <div class="space-y-2.5 mb-5">
+          ${s.items.map(i => `
+          <div class="flex items-center gap-3.5 text-xs p-2 rounded-2xl bg-slate-50/60 border border-slate-100">
+            <div class="w-12 h-12 rounded-xl bg-white border border-slate-200/80 overflow-hidden flex items-center justify-center shrink-0 p-1">
+              ${productImg(i, 'w-full h-full object-contain')}
+            </div>
+            <div class="flex-1 truncate">
+              <div class="font-bold text-slate-900 truncate font-display text-xs sm:text-sm">${i.name}</div>
+              <div class="text-[10px] text-slate-500 font-display">จำนวน ${i.qty} ชิ้น · ${baht(i.price)}/ชิ้น</div>
+            </div>
+            <div class="font-blob text-slate-900 text-xs sm:text-sm font-semibold">${baht(i.price * i.qty)}</div>
+          </div>`).join('')}
+        </div>
+
+        <!-- ปุ่มแอ็กชัน -->
+        <div class="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs font-display">
+          <div class="flex items-center gap-2">
+            ${s.status !== 'cancelled' ? `
+            <a href="tracking.html?tk=${s.tracking}" class="h-10 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1.5 transition shadow-sm">
+              <i data-lucide="map-pin" class="w-3.5 h-3.5"></i> ติดตามพัสดุ GPS
+            </a>` : ''}
+            <button onclick="showReceiptModal('${o.no}', '${s.subNo}')" class="h-10 px-4 rounded-xl bg-white hover:bg-slate-100 text-slate-800 font-bold border border-slate-200 flex items-center gap-1.5 transition shadow-xs">
+              <i data-lucide="receipt" class="w-3.5 h-3.5 text-emerald-600"></i> ใบเสร็จรับเงิน
+            </button>
+          </div>
+          <button onclick="rebuy('${s.subNo}')" class="h-10 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold flex items-center gap-1.5 transition">
+            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5 text-slate-400"></i> สั่งซื้อซ้ำ
+          </button>
+        </div>
+      </div>`).join('')}
+    </article>`;
+  }).join('')
+  : `
+  <div class="bg-white rounded-3xl border-2 border-slate-200/80 py-16 px-6 text-center max-w-md mx-auto" style="box-shadow: 0 12px 34px rgba(24,50,43,0.06);">
+    <div class="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto text-3xl mb-4">
+      📦
+    </div>
+    <h2 class="text-base font-bold text-slate-800 font-display">ยังไม่มีรายการสั่งซื้อ</h2>
+    <p class="text-xs text-slate-500 mt-1 mb-6">เริ่มสั่งซื้อยาคุณภาพจากร้านยาชั้นนำใกล้คุณ</p>
+    <a href="index.html" class="inline-flex items-center gap-2 h-11 px-6 rounded-full bg-emerald-600 text-white text-xs font-bold font-display hover:bg-emerald-700 transition shadow-sm">
+      <i data-lucide="store" class="w-4 h-4"></i> เริ่มสั่งซื้อยา
+    </a>
+  </div>`;
+
+  icons();
+  if (isNew) toast('สั่งซื้อและชำระเงินสำเร็จ! 🎉 ' + isNew);
+}
+
+/* ── โมดอลแก้ไขที่อยู่จัดส่งและเบอร์โทร + ปักหมุด GPS ── */
+let orderEditLat = null;
+let orderEditLng = null;
+
+function openEditAddressModal(orderNo) {
+  const o = DB.orders.find(x => x.no === orderNo);
+  if (!o) return;
+  orderEditLat = o.lat || null;
+  orderEditLng = o.lng || null;
+
+  showModal(`
+  <div class="p-6 font-display">
+    <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+      <h3 class="font-bold text-slate-900 text-base">แก้ไขข้อมูลที่อยู่จัดส่ง</h3>
+      <button onclick="closeModal()" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+    <div class="space-y-3.5 text-xs font-sans">
+      <div>
+        <label class="font-bold text-slate-700 block mb-1">ชื่อ-นามสกุล ผู้รับ *</label>
+        <input id="editRecipient" value="${o.recipient}" class="w-full h-10 px-3 rounded-xl border border-slate-200 focus:border-emerald-500 outline-none">
+      </div>
+      <div>
+        <label class="font-bold text-slate-700 block mb-1">เบอร์โทรศัพท์ติดต่อ *</label>
+        <input id="editPhone" value="${o.phone}" class="w-full h-10 px-3 rounded-xl border border-slate-200 focus:border-emerald-500 outline-none">
+      </div>
+      <div>
+        <div class="flex items-center justify-between mb-1">
+          <label class="font-bold text-slate-700">ที่อยู่จัดส่งและจุดสังเกต *</label>
+          <button type="button" onclick="pickOrderPin()" class="text-emerald-700 hover:text-emerald-800 font-bold text-[11px] flex items-center gap-1 font-display">
+            <i data-lucide="map-pin" class="w-3.5 h-3.5 text-rose-500"></i> ปักหมุดแผนที่ (GPS)
+          </button>
+        </div>
+        <textarea id="editAddr" rows="3" class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-emerald-500 outline-none resize-none leading-relaxed">${o.addr}</textarea>
+        <div class="mt-2 p-2 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-[11px] font-mono text-slate-600">
+          <div class="flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full ${orderEditLat?'bg-rose-500':'bg-slate-300'}"></span>
+            <span>พิกัดส่งยา:</span>
+            <strong id="orderPinTxt" class="text-slate-900">${orderEditLat ? `${orderEditLat.toFixed(4)}, ${orderEditLng.toFixed(4)}` : 'ยังไม่ได้ปักหมุด'}</strong>
+          </div>
+          <button type="button" onclick="pickOrderPin()" class="text-emerald-700 font-bold hover:underline font-display">เปลี่ยนพิกัด</button>
+        </div>
+      </div>
+      <div class="pt-2 flex gap-3 font-display">
+        <button onclick="closeModal()" class="flex-1 h-11 rounded-xl bg-slate-100 text-slate-700 font-bold transition">ยกเลิก</button>
+        <button onclick="saveEditedAddress('${orderNo}')" class="flex-1 h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition shadow-xs">บันทึกข้อมูลใหม่</button>
+      </div>
+    </div>
+  </div>`);
+  icons();
+}
+
+function pickOrderPin() {
+  openPinPickerModal({
+    lat: orderEditLat || 13.7200,
+    lng: orderEditLng || 100.5500,
+    title: '📍 ปักหมุดที่อยู่จัดส่งใหม่ (Grab / LINE MAN Style)',
+    onConfirm: ({ lat, lng, address }) => {
+      orderEditLat = lat;
+      orderEditLng = lng;
+      if ($('orderPinTxt')) $('orderPinTxt').textContent = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+      if (address && $('editAddr')) $('editAddr').value = address;
+      toast('ปักหมุดพิกัดจัดส่งใหม่แล้ว ✓');
+    }
+  });
+}
+
+function saveEditedAddress(orderNo) {
+  const recipient = $('editRecipient').value.trim();
+  const phone = $('editPhone').value.trim();
+  const addr = $('editAddr').value.trim();
+  if (!recipient || !phone || !addr) { toast('กรุณากรอกข้อมูลให้ครบถ้วน'); return; }
+
+  if (updateOrderAddress(orderNo, { recipient, phone, addr, lat: orderEditLat, lng: orderEditLng })) {
+    closeModal();
+    render();
+    toast('แก้ไขที่อยู่จัดส่งเรียบร้อยแล้ว ✓');
+  }
+}
+
+/* ── โมดอลยกเลิกคำสั่งซื้อของคนซื้อ ── */
+function openCustomerCancelModal(orderNo) {
+  showModal(`
+  <div class="p-6 font-display">
+    <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+      <h3 class="font-bold text-slate-900 text-base text-rose-700">ยืนยันยกเลิกคำสั่งซื้อ</h3>
+      <button onclick="closeModal()" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+    <div class="space-y-3.5 text-xs font-sans">
+      <p class="text-slate-600 leading-relaxed">
+        คุณต้องการยกเลิกคำสั่งซื้อหมายเลข <b>${orderNo}</b> ใช่หรือไม่? ยาทั้งหมดจะถูกคืนกลับเข้าคลังร้านค้าทันที
+      </p>
+      <div>
+        <label class="font-bold text-slate-700 block mb-1">เหตุผลในการยกเลิก:</label>
+        <select id="custCancelReason" class="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white outline-none">
+          <option>ต้องการแก้ไขที่อยู่หรือเปลี่ยนวิธีชำระเงิน</option>
+          <option>ต้องการเปลี่ยนรายการยา</option>
+          <option>สั่งซื้อซ้ำซ้อน</option>
+          <option>เปลี่ยนใจ / ไม่สะดวกรับยา</option>
+          <option>อื่นๆ</option>
+        </select>
+      </div>
+      <div class="pt-2 flex gap-3 font-display">
+        <button onclick="closeModal()" class="flex-1 h-11 rounded-xl bg-slate-100 text-slate-700 font-bold transition">ไม่ยกเลิก</button>
+        <button onclick="doCustomerCancel('${orderNo}')" class="flex-1 h-11 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold transition shadow-xs">ยืนยันยกเลิกออเดอร์</button>
+      </div>
+    </div>
+  </div>`);
+}
+
+function doCustomerCancel(orderNo) {
+  const reason = $('custCancelReason') ? $('custCancelReason').value : 'ลูกค้ายกเลิก';
+  if (cancelOrderByCustomer(orderNo, reason)) {
+    closeModal();
+    render();
+    toast('ยกเลิกคำสั่งซื้อเรียบร้อยแล้ว');
+  } else {
+    toast('ไม่สามารถยกเลิกได้ เนื่องจากออเดอร์เริ่มนำส่งแล้ว');
+  }
+}
+
+function rebuy(subNo) {
+  for (const o of DB.orders) {
+    for (const s of o.subs) {
+      if (s.subNo === subNo) {
+        let addedCount = 0;
+        let outStockCount = 0;
+        s.items.forEach(i => {
+          const p = product(i.id);
+          if (p && p.stock > 0) {
+            addToCart(u.id, i.id, Math.min(i.qty, p.stock));
+            addedCount++;
+          } else {
+            outStockCount++;
+          }
+        });
+        renderNav('', 'orders');
+        if (outStockCount > 0) {
+          toast(`เพิ่ม ${addedCount} รายการลงตะกร้าแล้ว (มียาหมด ${outStockCount} รายการ)`);
+        } else {
+          toast('เพิ่มทุกรายการเดิมลงในตะกร้าแล้ว ✓');
+        }
+        return;
+      }
+    }
+  }
+}
+</script>
+</body></html>
